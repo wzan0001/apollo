@@ -178,8 +178,8 @@ class ObjMapper {
  private:
   // canonical camera: p_matrix = k_matrix [I 0]
   float k_mat_[9] = {0};
-  int width_ = 0;
-  int height_ = 0;
+  int width_ = 0; //image_width
+  int height_ = 0; //image_height
   std::vector<float> ry_score_ = {};
   ObjMapperParams params_;
 

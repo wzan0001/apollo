@@ -199,7 +199,7 @@ T GetScoreViaRotDimensionCenter(const T *k_mat, int width, int height,
     x_box[2] = z_corners[i];
     common::IProjectThroughKRt(k_mat, rot, location, x_box, x_proj);
     x_proj[0] *= common::IRec(x_proj[2]);
-    x_proj[1] *= common::IRec(x_proj[2]);
+    x_proj[1] *= common::IRec(x_proj[2]); //归一化处理
 
     if (bbox_near != nullptr) {
       int i2 = i * 2;

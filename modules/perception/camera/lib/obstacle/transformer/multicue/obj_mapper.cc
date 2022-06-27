@@ -56,14 +56,14 @@ bool ObjMapper::SolveCenterFromNearestVerticalEdge(const float *bbox,
     return false;
   }
 
-  if (common::IRound(bbox[3]) >= height_ - 1) {
-    height_bbox /= params_.occ_ratio;
+  if (common::IRound(bbox[3]) >= height_ - 1) {  //height_为图像高度
+    height_bbox /= params_.occ_ratio; 
   }
 
-  float f = (k_mat_[0] + k_mat_[4]) / 2;
-  float depth = f * hwl[0] * common::IRec(height_bbox);
+  float f = (k_mat_[0] + k_mat_[4]) / 2; //焦距
+  float depth = f * hwl[0] * common::IRec(height_bbox); //根据高得到深度
 
-  // compensate from the nearest vertical edge to center
+  // compensate from the nearest vertical edge to center //最近垂直边
   const float PI = common::Constant<float>::PI();
   float theta_bbox = static_cast<float>(atan(hwl[1] * common::IRec(hwl[2])));
   float radius_bbox =
@@ -77,11 +77,11 @@ bool ObjMapper::SolveCenterFromNearestVerticalEdge(const float *bbox,
   // back-project to solve center
   center_2d[0] = (bbox[0] + bbox[2]) / 2;
   center_2d[1] = (bbox[1] + bbox[3]) / 2;
-  if (hwl[1] > params_.stable_w) {
+  if (hwl[1] > params_.stable_w) { //宽度大于0.5
     GetCenter(bbox, depth, ry, hwl, center, center_2d);
   } else {
     center[2] = depth;
-    UpdateCenterViaBackProjectZ(bbox, hwl, center_2d, center);
+    UpdateCenterViaBackProjectZ(bbox, hwl, center_2d, center); //不大于0.5的直接用求得的深度反投影2D中心点得到3D中心点
   }
 
   return center[2] > params_.depth_min;
@@ -102,7 +102,7 @@ bool ObjMapper::Solve3dBboxGivenOneFullBboxDimensionOrientation(
   float max_y = static_cast<float>(height_ - params_.boundary_len);
   bool truncated = bbox[0] <= min_x || bbox[2] >= max_x || bbox[1] <= min_y ||
                    bbox[3] >= max_y;
-  float dist_rough = sqrtf(common::ISqr(center[0]) + common::ISqr(center[2]));
+  float dist_rough = sqrtf(common::ISqr(center[0]) + common::ISqr(center[2])); //径向距离
   bool ry_pred_is_not_reliable = dist_rough > params_.dist_far &&
                                  bbox[3] - bbox[1] < params_.small_bbox_height;
   if (ry_pred_is_not_reliable || std::abs(*ry - PI_HALF) < small_angle_diff ||
@@ -143,7 +143,7 @@ bool ObjMapper::Solve3dBbox(const ObjMapperOptions &options, float center[3],
     const float *tmplt_with_min_vol = &kVehHwl[type_min_vol_index];
     float min_tmplt_vol =
         tmplt_with_min_vol[0] * tmplt_with_min_vol[1] * tmplt_with_min_vol[2];
-    float shrink_ratio_vol = common::ISqr(sqrtf(params_.iou_high));
+    float shrink_ratio_vol = common::ISqr(sqrtf(params_.iou_high)); //?
     shrink_ratio_vol *= shrink_ratio_vol;
     // float shrink_ratio_vol = sqrt(params_.iou_high);
     if (hwl[0] < params_.abnormal_h_veh ||
@@ -271,7 +271,7 @@ void ObjMapper::PostRefineOrientation(const float *bbox, const float *hwl,
 void ObjMapper::GetCenter(const float *bbox, const float &z_ref,
                           const float &ry, const float *hwl, float *center,
                           float *x) const {
-  float x_target[2] = {(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2};
+  float x_target[2] = {(bbox[0] + bbox[2]) / 2, (bbox[1] + bbox[3]) / 2}; //2D中心点
   const float kMinCost = params_.reproj_err;
   const float EPS_COST_DELTA = params_.eps_mapper;
   const float LR = params_.learning_r;
@@ -297,20 +297,21 @@ void ObjMapper::GetCenter(const float *bbox, const float &z_ref,
 
   // std::cout << "start to iteratively search the center..." << std::endl;
   while (!stop) {
-    common::IBackprojectCanonical(x, k_mat_, z_ref, center_test);
+    common::IBackprojectCanonical(x, k_mat_, z_ref, center_test); //2D点转3D点，x是2D框中心点，返回的是center_test
     center_test[1] += hwl[0] / 2;
-    float x_min = std::numeric_limits<float>::max();
+    float x_min = std::numeric_limits<float>::max(); //初始化为最大值
     float x_max = -std::numeric_limits<float>::max();
     float y_min = std::numeric_limits<float>::max();
     float y_max = -std::numeric_limits<float>::max();
     float x_proj[3] = {0};
 
+    //一次投影8个3D点，得到2D框
     for (int i = 0; i < 8; ++i) {
       // bbox from x_proj
       float x_box[3] = {x_corners[i], y_corners[i], z_corners[i]};
-      common::IProjectThroughKRt(k_mat_, rot, center_test, x_box, x_proj);
-      x_proj[0] *= common::IRec(x_proj[2]);
-      x_proj[1] *= common::IRec(x_proj[2]);
+      common::IProjectThroughKRt(k_mat_, rot, center_test, x_box, x_proj); //各个角点投影到图片，返回的是x_proj
+      x_proj[0] *= common::IRec(x_proj[2]); 
+      x_proj[1] *= common::IRec(x_proj[2]); //归一化第三位数，得到最终2D投影点
       x_min = std::min(x_min, x_proj[0]);
       x_max = std::max(x_max, x_proj[0]);
       y_min = std::min(y_min, x_proj[1]);
@@ -322,7 +323,7 @@ void ObjMapper::GetCenter(const float *bbox, const float &z_ref,
       y_min = std::min(std::max(y_min, 0.0f), y_max_flt);
       y_max = std::min(std::max(y_max, 0.0f), y_max_flt);
     }
-    float x_cur[2] = {(x_min + x_max) / 2, (y_min + y_max) / 2};
+    float x_cur[2] = {(x_min + x_max) / 2, (y_min + y_max) / 2}; //3D点投影计算出来的2D框中心点
     float cost_cur = common::ISqrt(common::ISqr(x_cur[0] - x_target[0]) +
                                    common::ISqr(x_cur[1] - x_target[1]));
 
